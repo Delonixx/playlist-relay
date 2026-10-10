@@ -5,7 +5,7 @@
 [![Tests](https://github.com/Delonixx/playlist-relay/actions/workflows/test.yml/badge.svg)](https://github.com/Delonixx/playlist-relay/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-把 ChatGPT 给出的歌曲列表带进自己的歌单，再用歌单画像与主动反馈发现新歌。
+把一系列歌曲带进自己的歌单，再用歌单画像与主动反馈发现新歌。
 
 歌曲列表 → 搜索与版本核对 → 歌单分析 → 推荐与口味反馈 → 待选核对 → 确认追加
 
