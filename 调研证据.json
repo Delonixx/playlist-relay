@@ -1,0 +1,67 @@
+{
+  "checked": "2026-10-07",
+  "repositories": [
+    {
+      "repo": "NeteaseCloudMusicApiEnhanced/api-enhanced",
+      "archived": false,
+      "pushed_at": "2026-10-06T12:44:58Z",
+      "license": "MIT",
+      "release": "v4.41.1",
+      "published_at": "2026-10-05T14:46:00Z"
+    },
+    {
+      "repo": "L-1124/QQMusicApi",
+      "archived": false,
+      "pushed_at": "2026-10-05T13:21:39Z",
+      "license": "GPL-3.0",
+      "release": "v0.8.2",
+      "published_at": "2026-10-05T08:01:06Z"
+    },
+    {
+      "repo": "kekevow0-cpu/netease-playlist-importer",
+      "archived": false,
+      "pushed_at": "2026-06-07T14:40:24Z",
+      "license": "MIT",
+      "release": "网易歌单导入器1.0",
+      "published_at": "2026-06-07T14:40:24Z"
+    },
+    {
+      "repo": "HomoLand/music-likes-sync",
+      "archived": false,
+      "pushed_at": "2026-07-20T11:57:46Z",
+      "license": "MIT"
+    },
+    {
+      "repo": "listen1/listen1_chrome_extension",
+      "archived": false,
+      "pushed_at": "2025-06-17T13:15:48Z",
+      "license": "MIT",
+      "release": "v2.33.0",
+      "published_at": "2025-06-17T13:15:48Z"
+    },
+    {
+      "repo": "lyswhut/lx-music-desktop",
+      "archived": false,
+      "pushed_at": "2026-10-07T03:41:50Z",
+      "license": "Apache-2.0",
+      "release": "v2.12.6",
+      "published_at": "2026-09-19T02:23:52Z"
+    },
+    {
+      "repo": "Bistutu/GoMusic",
+      "archived": false,
+      "pushed_at": "2026-03-04T16:12:19Z",
+      "license": "MIT"
+    },
+    {
+      "repo": "ylw1997/qqmusic-api",
+      "archived": false,
+      "pushed_at": "2026-04-27T06:25:10Z"
+    },
+    {
+      "url": "https://y.qq.com/portal/songlist_import.html",
+      "status": 200,
+      "text": "系统升级中，功能暂不可用\n    "
+    }
+  ]
+}

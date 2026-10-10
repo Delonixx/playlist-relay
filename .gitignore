@@ -1,0 +1,15 @@
+node_modules/
+work/
+*.log
+*.cookie
+.env
+import-report*.json
+歌单接力-*.json
+歌单接力-已选歌曲.txt
+.env.*
+*.key
+
+.DS_Store
+Thumbs.db
+*.pid
+coverage/

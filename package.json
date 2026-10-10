@@ -1,0 +1,23 @@
+{
+  "name": "local-playlist-importer",
+  "version": "0.6.3",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "demo": "node server.mjs --demo",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@neteasecloudmusicapienhanced/api": "4.41.1"
+  },
+  "license": "MIT",
+  "packageManager": "pnpm@11.25.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Delonixx/playlist-relay.git"
+  }
+}
