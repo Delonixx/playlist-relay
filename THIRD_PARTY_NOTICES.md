@@ -40,3 +40,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ```
+
+## 全球平台测试接入
+
+Spotify 使用官方 Web API / OAuth，Apple 使用官方 Apple Music API / MusicKit Web v3。官方 SDK 仅在独立授权页按需加载，未打包 SDK。
+
+public/spotify-logo.svg 为 Spotify 官方完整标志，用于内容来源归因；商标与素材权利归 Spotify，不适用本项目源码 MIT 授权，不表示合作或背书。原始下载地址、归因规则和图片域名见 [素材来源](素材来源.md)。

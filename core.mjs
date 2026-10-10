@@ -1,7 +1,7 @@
 export const normalize = s => String(s).normalize('NFKC').toLowerCase().replace(/[’‘]/g, "'").replace(/[^\p{L}\p{N}]/gu, '');
 export function coverUrl(input) {
   const value = String(input || '').replace(/^http:\/\/(p[1-9]\.music\.126\.net\/|y\.gtimg\.cn\/)/, 'https://$1');
-  try { const url = new URL(value); if (url.protocol !== 'https:' || url.username || url.password || url.port) return ''; return /^p[1-9]\.music\.126\.net$/.test(url.hostname) || url.hostname === 'y.gtimg.cn' && url.pathname.startsWith('/music/photo_new/') ? url.href : ''; } catch { return ''; }
+  try { const url = new URL(value); if (url.protocol !== 'https:' || url.username || url.password || url.port) return ''; return /^p[1-9]\.music\.126\.net$/.test(url.hostname) || url.hostname === 'y.gtimg.cn' && url.pathname.startsWith('/music/photo_new/') || url.hostname === 'i.scdn.co' && url.pathname.startsWith('/image/') || /^is[1-9]-ssl\.mzstatic\.com$/.test(url.hostname) ? url.href : ''; } catch { return ''; }
 }
 export function parseList(text, order = 'title-first') {
   if (typeof text !== 'string' || text.length > 40000) throw new Error('列表过长，最多 200 首。');
@@ -45,8 +45,10 @@ export function rank(row, songs) {
     const pic = String(s.al?.picUrl || s.album?.picUrl || '').replace(/^http:\/\/(p[1-9]\.music\.126\.net\/)/, 'https://$1');
     const cover = coverUrl(pic);
     const year = Number(s.publishTime) > 0 ? new Date(Number(s.publishTime)).getUTCFullYear() : null;
-    return { id: String(s.id), platform: s.platform === 'qq' ? 'qq' : 'netease', title, artist: names.join(' / '), album, cover, year, writeBlocked: s.writeBlocked === true, duration: Number(s.dt || s.duration || 0), score: Math.round(100 * (.7 * titleScore + .3 * artistScore - (variantMismatch ? .3 : 0))), exact, variantMismatch };
-  }).filter(s => /^\d+$/.test(s.id)).sort((a, b) => b.score - a.score);
+    const platform = ['qq','spotify','apple'].includes(s.platform) ? s.platform : 'netease';
+    let externalUrl = ''; try { const u = new URL(s.externalUrl); if (u.protocol === 'https:' && !u.username && !u.password && !u.port && (platform === 'spotify' && u.hostname === 'open.spotify.com' || platform === 'apple' && u.hostname === 'music.apple.com')) externalUrl=u.href; } catch {}
+    return { id: String(s.id), platform, title, artist: names.join(' / '), album, cover, year, externalUrl, writeBlocked: s.writeBlocked === true, duration: Number(s.dt || s.duration || 0), score: Math.round(100 * (.7 * titleScore + .3 * artistScore - (variantMismatch ? .3 : 0))), exact, variantMismatch };
+  }).filter(s => s.platform === 'spotify' ? /^[A-Za-z0-9]{22}$/.test(s.id) : /^\d+$/.test(s.id)).sort((a, b) => b.score - a.score);
   // Different IDs with identical metadata are still ambiguous editions.
   const auto = candidates[0]?.exact && !candidates[0].writeBlocked && !candidates.slice(1).some(s => s.exact);
   return { ...row, candidates: candidates.slice(0, 8), selected: auto ? candidates[0].id : '', status: auto ? '高匹配，仍请预览' : candidates.length ? '请确认版本' : '未找到' };
@@ -69,6 +71,16 @@ export function withFavoritePreference(row, counts = {}) {
 }
 export function playlistId(input, platform = 'netease') {
   const s = String(input).trim();
+  if (platform === 'spotify') {
+    if (/^[A-Za-z0-9]{22}$/.test(s)) return s;
+    const uri = /^spotify:playlist:([A-Za-z0-9]{22})$/.exec(s); if (uri) return uri[1];
+    try { const u=new URL(s),id=/^\/playlist\/([A-Za-z0-9]{22})\/?$/.exec(u.pathname)?.[1]; if(u.protocol==='https:'&&u.hostname==='open.spotify.com'&&!u.username&&!u.password&&!u.port&&id)return id; } catch {}
+    throw new Error('请从 Spotify 选择自己的歌单，或填写完整歌单链接 / Spotify URI。');
+  }
+  if (platform === 'apple') {
+    if (/^p\.[A-Za-z0-9.-]{2,100}$/.test(s)) return s;
+    throw new Error('Apple Music 请从“选择歌单”读取资料库歌单。公开分享链接的 pl. ID 不能直接当资料库 p. ID 写入。');
+  }
   if (/^\d+$/.test(s)) return s;
   try {
     const u = new URL(s);
@@ -94,9 +106,13 @@ export function selectedIds(plan, selections) {
   return [...new Set(ids)];
 }
 export const delay = ms => new Promise(r => setTimeout(r, ms));
+export function assertWritable(api, playlist, uid) {
+  if (typeof api.assertWritable === 'function') return api.assertWritable(playlist, uid);
+  if (String(playlist.creator?.userId) !== String(uid)) throw new Error('只能追加到当前账号自己创建的歌单。');
+}
 export async function appendVerified(api, pid, uid, ids, onProgress = () => {}) {
   const before = await api.detail(pid);
-  if (String(before.creator?.userId) !== String(uid)) throw new Error('只能追加到当前账号自己创建的歌单。');
+  assertWritable(api, before, uid);
   if (!Array.isArray(before.trackIds)) throw new Error('没有获得完整歌曲 ID，停止导入。');
   const existing = new Set(before.trackIds.map(x => String(x.id)));
   const pending = [...new Set(ids)].filter(id => !existing.has(id));
@@ -106,7 +122,9 @@ export async function appendVerified(api, pid, uid, ids, onProgress = () => {}) 
     try {
       await api.add(pid, batch);
       await api.pause();
-      const after = await api.detail(pid);
+      // Apple can accept a write before the library becomes visible. Poll reads only.
+      const after = typeof api.readBack === 'function' ? await api.readBack(pid, batch) : await api.detail(pid);
+      assertWritable(api, after, uid);
       if (!Array.isArray(after.trackIds)) throw new Error('无法读取导入后的歌曲 ID');
       const present = new Set(after.trackIds.map(x => String(x.id)));
       report.verified.push(...batch.filter(id => present.has(id)));
