@@ -133,6 +133,22 @@ export class Netease {
     return { id: String(id), name: b.playlist?.name || name };
   }
   async add(pid, ids) { this.check(await this.request('playlist/manipulate/tracks', { op: 'add', pid, trackIds: JSON.stringify(ids), imme: 'true' })); }
+  async readForPrune(id) {
+    const playlist = await this.detail(id), ids = playlist?.trackIds?.map(value => String(value.id));
+    if (!ids || ids.length > 1000 || Number(playlist.trackCount) !== ids.length) throw new Error('整理需要完整歌单，首版最多 1000 首；不会使用抽样结果删除。');
+    const tracks = [];
+    for (let offset=0;offset<ids.length;offset+=100) {
+      const batch=ids.slice(offset,offset+100), body=this.check(await this.request('v3/song/detail',{c:JSON.stringify(batch.map(id=>({id})))}));
+      const byId=new Map((body.songs||[]).map(value=>[String(value.id),value]));
+      if(batch.some(id=>!byId.has(id)))throw new Error('部分歌曲无法读取，停止整理。');
+      tracks.push(...batch.map(id=>byId.get(id)));
+    }
+    return {...playlist,tracks};
+  }
+  async remove(pid, ids, snapshot) {
+    if (!this.verified || String(snapshot?.id)!==String(pid) || !Array.isArray(ids) || !ids.length || ids.length>10 || new Set(ids).size!==ids.length || ids.some(id=>typeof id!=='string'||!/^\d{1,20}$/.test(id)||!snapshot.trackIds?.some(value=>String(value.id)===id))) throw new Error('删除仅允许当前完整歌单中已核对的歌曲，每批最多 10 首。');
+    this.check(await this.request('playlist/manipulate/tracks',{op:'del',pid,trackIds:JSON.stringify(ids),imme:'true'}));
+  }
   pause() { return delay(2000); }
   clear() { this.cookie = ''; this.qrKey = ''; this.qrCookie = ''; this.protocol = 'weapi'; this.verified = false; this.source = ''; }
 }

@@ -2,7 +2,7 @@ import { delay, coverUrl } from './core.mjs';
 import { QQLogin } from './qq-login.mjs';
 
 // Independent, narrow Web adapter. Protocol references: QQ接入.md.
-// No audio, deletion, device emulation, credential files or write retries.
+// No audio, playlist destruction, device emulation, credential files or write retries.
 const rpc = {
   search: ['music.adaptor.SearchAdaptor', 'do_search_v2'],
   user: ['music.UserInfo.userInfoServer', 'GetLoginUserInfo'],
@@ -10,6 +10,7 @@ const rpc = {
   detail: ['music.srfDissInfo.DissInfo', 'CgiGetDiss'],
   create: ['music.musicasset.PlaylistBaseWrite', 'AddPlaylist'],
   add: ['music.musicasset.PlaylistDetailWrite', 'AddSonglist'],
+  remove: ['music.musicasset.PlaylistDetailWrite', 'DelSonglist'],
   favorites: ['music.musicasset.SongFavRead', 'GetSongFansNumberById'],
   qqLogin: ['QQConnectLogin.LoginServer', 'QQLogin'],
   wxLogin: ['music.login.LoginServer', 'Login']
@@ -177,6 +178,19 @@ export class QQMusic {
     if (ids.some(id => this.songTypes.get(id) === null)) throw new Error('所选 QQ 曲目在搜索中返回了不同类型，暂不能导入；封面仍可浏览，请重新匹配后核对。');
     const data = await this.request('add', { dirId: this.directories.get(pid), tid: int(pid), bFmtUtf8: true, v_songInfo: ids.map(id => ({ songId: int(id), songType: this.songTypes.get(id) })) });
     if (data.retCode !== 0) throw new Error('QQ 未明确确认本批加歌，请先核对官方歌单。');
+  }
+  async readForPrune(id) {
+    const data=await this.detail(id);
+    if(data.trackIds.length>1000)throw new Error('整理首版最多 1000 首，不使用抽样结果删除。');
+    return data;
+  }
+  async remove(pid, ids, snapshot) {
+    if(!this.verified||String(snapshot?.id)!==pid||String(snapshot.creator?.userId)!==this.credential?.id||snapshot.dirId===201||!this.directories.has(pid)||this.directories.get(pid)!==snapshot.dirId)throw new Error('只能整理当前账号自己的普通 QQ 歌单。');
+    if(!Array.isArray(ids)||!ids.length||ids.length>10||new Set(ids).size!==ids.length)throw new Error('每批仅删除 1–10 首已核对歌曲。');
+    const songs=ids.map(id=>snapshot.tracks?.find(value=>value.id===id));
+    if(songs.some(value=>!value||!Number.isSafeInteger(value.songType)||value.songType<0))throw new Error('QQ 删除曲目的 ID / 类型不完整，已停止。');
+    const data=await this.request('remove',{dirId:snapshot.dirId,tid:int(pid),bFmtUtf8:true,v_songInfo:songs.map(song=>({songId:int(song.id),songType:song.songType}))});
+    if(data.retCode!==0)throw new Error('QQ 未明确确认删除，请先在官方客户端核对。');
   }
   async pause() { await this.wait(1500); }
   playlistUrl(id) { return `https://y.qq.com/n/ryqq/playlist/${decimal(id)}`; }

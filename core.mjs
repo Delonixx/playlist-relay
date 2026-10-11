@@ -94,6 +94,9 @@ export function selectedIds(plan, selections) {
   return [...new Set(ids)];
 }
 export const delay = ms => new Promise(r => setTimeout(r, ms));
+export function assertWritable(api, playlist, uid) {
+  if (String(playlist.creator?.userId) !== String(uid)) throw new Error('只能操作当前账号自己创建的歌单。');
+}
 export async function appendVerified(api, pid, uid, ids, onProgress = () => {}) {
   const before = await api.detail(pid);
   if (String(before.creator?.userId) !== String(uid)) throw new Error('只能追加到当前账号自己创建的歌单。');

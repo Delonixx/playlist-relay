@@ -8,8 +8,5 @@ import-report*.json
 歌单接力-已选歌曲.txt
 .env.*
 *.key
-
-.DS_Store
-Thumbs.db
-*.pid
-coverage/
+*.p8
+*.pem

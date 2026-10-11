@@ -315,7 +315,7 @@ export class MusicAI {
       const content = envelope.choices?.[0]?.message?.content;
       if (typeof content !== 'string') throw 0;
       raw = JSON.parse(content.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/, ''));
-    } catch { throw new Error(options.stage === 'recommendations' ? 'AI 推荐回复不完整或格式无效，请重新生成。' : 'AI 输出不完整或格式无效，未生成图表。可减少歌曲数量再试。'); }
+    } catch { throw new Error(options.stage === 'prune' ? 'AI 整理回复不完整或格式无效，已停止筛选；未生成待删计划。' : options.stage === 'recommendations' ? 'AI 推荐回复不完整或格式无效，请重新生成。' : 'AI 输出不完整或格式无效，未生成图表。可减少歌曲数量再试。'); }
     return raw;
   }
   cancel(preserve = false) { this.controller?.abort(); this.generation++; if (!preserve) { this.lastResult = null; this.allTracks = []; this.recHistory = []; this.batchCache.clear(); } this.job = preserve && this.lastResult ? { state: 'completed', result: this.lastResult, canceled: true } : { state: 'idle' }; }

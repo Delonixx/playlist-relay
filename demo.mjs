@@ -1,5 +1,5 @@
 export class Demo {
-  constructor({ platform = 'netease' } = {}) { this.platform = platform; this.ids = ['101']; this.cookie = ''; }
+  constructor({ platform = 'netease' } = {}) { this.platform = platform; this.ids = ['101']; this.cookie = ''; this.catalog=new Map([['101',{id:'101',name:'So Sick (Live)',ar:[{name:'Ne-Yo'}],al:{name:'演示现场版'},songType:0}]]); }
   capabilities() { return { qr: true, qrTypes: this.platform === 'qq' ? ['qq','wx'] : [], autoQr: this.platform === 'qq', create: true, privateCreate: this.platform !== 'qq', favorites: this.platform === 'qq', experimental: this.platform === 'qq' }; }
   async favoriteCounts(ids) { if (this.platform !== 'qq') throw new Error('当前平台未提供收藏数。'); return Object.fromEntries(ids.map(id => [id, Number(id) % 10000])); }
   playlistUrl(id) { return this.platform === 'qq' ? `https://y.qq.com/n/ryqq/playlist/${id}` : `https://music.163.com/playlist?id=${id}`; }
@@ -11,7 +11,8 @@ export class Demo {
   async search(row) {
     if (/missing|找不到/i.test(row.title)) return [];
     const id = String(100 + [...row.title].reduce((s, c) => s + c.codePointAt(0), 0));
-    return [{ id, platform: this.platform, name: row.title, ar: [{ name: row.artist || '未知歌手' }], al: { name: '演示专辑' }, dt: 210000 }, { id: String(+id + 10000), platform: this.platform, name: row.title + ' (Live)', ar: [{ name: row.artist || '未知歌手' }], al: { name: '演示现场版' } }];
+    const songs=[{ id, platform: this.platform, name: row.title, ar: [{ name: row.artist || '未知歌手' }], al: { name: '演示专辑' }, dt: 210000 }, { id: String(+id + 10000), platform: this.platform, name: row.title + ' (Live)', ar: [{ name: row.artist || '未知歌手' }], al: { name: '演示现场版' } }];
+    for(const song of songs)this.catalog.set(song.id,{...song,songType:0});return songs;
   }
   async detail(id) { return { id, name: '演示歌单', creator: { userId: 'demo' }, trackIds: this.ids.map(id => ({ id })) }; }
   async create(name) { this.ids = []; return { id: '90002', name }; }
@@ -26,6 +27,8 @@ export class Demo {
     ] };
   }
   async add(pid, ids) { this.ids = [...new Set([...this.ids, ...ids])]; }
+  async readForPrune(id) { return { ...await this.detail(id), tracks:this.ids.map(value=>this.catalog.get(value)||{id:value,name:'演示歌曲 '+value,ar:[{name:'演示歌手'}],al:{name:'演示专辑'},songType:0}) }; }
+  async remove(pid,ids) { this.ids=this.ids.filter(id=>!ids.includes(id)); }
   async pause() {}
   clear() {}
 }
