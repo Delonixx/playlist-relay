@@ -78,7 +78,7 @@ async function fixture(t, { badToken = false, adapter = new Demo(), withStudio =
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
   const base = 'http://127.0.0.1:' + app.server.address().port;
   const document = dom(html), calls = [], timers = [];
-  const context = vm.createContext({ document, location: { origin:base, hash: '#' + (badToken ? 'invalid' : app.token) }, history: { replaceState() {} },
+  const context = vm.createContext({ document, location: { hash: '#' + (badToken ? 'invalid' : app.token) }, history: { replaceState() {} },
     fetch: (url, options) => { calls.push({ url, body: JSON.parse(options.body) }); return fetch(base + url, options); },
     setTimeout: (fn, delay) => { const timer = setTimeout(fn, delay === 3500 && qrPollDelay ? qrPollDelay : delay); timers.push(timer); return timer; },
     clearTimeout, queueMicrotask, Blob, localStorage: {
@@ -95,51 +95,6 @@ async function fixture(t, { badToken = false, adapter = new Demo(), withStudio =
   await until(() => !state().pending && (!withStudio || studio().ready));
   return { document, get, state, studio, calls, app, base, storage, context };
 }
-
-class OAuthUIFixture extends Demo {
-  constructor(platform) {super();this.platform=platform;this.configured=false;this.authorized=false;this.pending=false;}
-  capabilities() {return {oauth:true,qr:false,cookie:false,create:this.platform==='spotify',privateCreate:this.platform==='spotify',aiAnalysis:this.platform!=='spotify',aiReason:'Spotify 平台内容不能用于 AI 分析。',createReason:'请先在官方客户端创建 Apple Music 歌单。'};}
-  sessionInfo() {return {configured:this.configured,hasSession:this.authorized,verified:this.authorized,authPending:this.pending};}
-  async user() {if(!this.authorized)throw new Error('尚未授权');return {id:'fixture-user',name:'Fixture User'};}
-  async verifySession() {return this.user();}
-  configure(data) {this.configured=!!(data.clientId||data.developerToken);this.authorized=false;return this.sessionInfo();}
-  beginAuth(redirectUri) {this.pending=true;return {authorizeUrl:'https://accounts.spotify.com/authorize?'+new URLSearchParams({redirect_uri:redirectUri,state:'fixture'})};}
-  cancelAuth() {this.pending=false;}
-  async playlists() {return [{id:this.platform==='apple'?'p.fixture':'A'.repeat(22),name:'My Playlist',count:null}];}
-}
-test('Spotify configuration, official link and post-authorization check guide the user without writes or cookie controls',async t=>{
-  const spotify=new OAuthUIFixture('spotify'),netease=new Demo();
-  const {get,state,calls,base,document}=await fixture(t,{adapter:spotify,adapters:{spotify,netease},withStudio:true,demo:false});
-  await get('btn-login-modal').click();
-  assert.equal(get('login-tab-oauth').classList.contains('hidden'),false);
-  assert.equal(get('login-tab-cookie').classList.contains('hidden'),true);assert.equal(get('login-tab-qr').classList.contains('hidden'),true);
-  assert.equal(get('btn-oauth-open').disabled,true);assert.ok(get('oauth-redirect').textContent.includes(base+'/oauth/spotify/callback'));
-  assert.equal(get('btn-analyze').disabled,true);assert.match(get('global-ai-note').textContent,/Spotify/);
-  get('input-oauth-credential').value='a'.repeat(32);await get('btn-oauth-save').click();await until(()=>!state().pending);
-  assert.equal(get('input-oauth-credential').value,'');assert.equal(get('btn-oauth-open').disabled,false);
-  await get('btn-oauth-open').click();await until(()=>!state().pending);
-  assert.equal(new URL(get('oauth-authorize-link').href).hostname,'accounts.spotify.com');
-  await get('btn-oauth-check').click();await until(()=>!state().pending);assert.match(get('login-error').textContent,/尚未完成/);
-  spotify.pending=false;spotify.authorized=true;await get('btn-oauth-check').click();await until(()=>!state().pending);
-  assert.equal(state().user.name,'Fixture User');assert.equal(get('modal-login').open,false);
-  await get('btn-select-playlist').click();await until(()=>!state().pending);assert.match(get('user-playlists').textContent,/数量待读取/);
-  assert.equal(calls.some(c=>['/api/import','/api/create','/api/ai/analyze'].includes(c.url)),false);
-  get('input-tracks').value='Spotify source';get('music-platform').value='netease';await get('music-platform').fire('change');await until(()=>!state().pending&&state().platform==='netease');
-  assert.equal(get('input-tracks').value,'');assert.equal(get('btn-analyze').disabled,false);
-  assert.equal(document.querySelectorAll('#music-platform option').find(x=>x.value==='apple').disabled,true);
-});
-test('Apple UI masks token, shows editable-library selection and blocks creation and public share ID imports',async t=>{
-  const apple=new OAuthUIFixture('apple');const {get,state,calls}=await fixture(t,{adapter:apple,withStudio:true,demo:false});
-  assert.equal(get('input-oauth-credential').type,'password');assert.equal(get('create-playlist-zone').classList.contains('hidden'),true);
-  assert.match(get('playlist-create-note').textContent,/官方客户端/);
-  get('input-oauth-credential').value='fixture-developer-token';get('input-oauth-storefront').value='us';await get('btn-oauth-save').click();await until(()=>!state().pending);
-  assert.equal(get('input-oauth-credential').value,'');assert.equal(get('oauth-storefront-group').classList.contains('hidden'),false);
-  apple.authorized=true;await get('btn-oauth-check').click();await until(()=>!state().pending);
-  get('input-target').value='https://music.apple.com/us/playlist/x/pl.fixture';await get('input-target').fire('input');
-  state().revision='fixture';state().choices=['100'];await get('input-target').fire('input');assert.equal(get('btn-execute-import').disabled,true);
-  get('input-target').value='p.fixture';await get('input-target').fire('input');assert.equal(get('btn-execute-import').disabled,false);
-  assert.equal(calls.some(c=>c.url==='/api/create'||c.url==='/api/import'),false);
-});
 
 test('selected songs and their explicit edition survive a new batch and are matched together without importing', async t => {
   const { document, get, studio, state, calls } = await fixture(t, { withStudio: true });

@@ -8,8 +8,6 @@ import-report*.json
 歌单接力-已选歌曲.txt
 .env.*
 *.key
-*.p8
-*.pem
 
 .DS_Store
 Thumbs.db

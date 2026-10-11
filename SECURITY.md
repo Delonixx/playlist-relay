@@ -9,8 +9,4 @@
 
 若发现可绕过账号归属、令牌或凭据隔离的问题，优先使用仓库 Security → Report a vulnerability 私下报告（若该入口未启用，不要在公开 Issue 中贴可利用细节或凭据）。普通 Issue 只说明影响和不含秘密的复现条件。
 
-当前测试版尚未经过独立安全审计。平台兼容性和真实写入以官方客户端及核对报告为准，首次使用建议用专门的测试歌单。
-
-## 新平台授权
-
-Spotify 的 state / PKCE、Apple 的一次性 nonce 与 Music User Token 仅限本次会话。不要提交 Client Secret、Developer Token、用户令牌或 .p8 私钥。本地签名只读取用户明确指定的私钥文件；签出的 Developer Token 按官方协议发送给 Apple。主页面不加载外部 SDK，Apple 仅在隔离的授权页加载官方 MusicKit。Spotify 内容不得输入 AI。
+Alpha 尚未经过独立安全审计。平台兼容性和真实写入以官方客户端及核对报告为准，首次使用建议用专门的测试歌单。

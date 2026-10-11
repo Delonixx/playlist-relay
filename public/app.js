@@ -10,9 +10,9 @@ const state = { platform: 'netease', platforms: ['netease'], capabilities: { qr:
 state.qqQrType = 'qq'; state.qrExpires = 0; state.loginIntent = '';
 let qrTimer = null, qrEpoch = 0, qrWork = null, qrSwitching = false;
 state.qrWorking = false;
-const platformName = () => ({netease:'网易云',qq:'QQ 音乐',spotify:'Spotify',apple:'Apple Music'})[state.platform] || '音乐平台';
-const playlistLink = id => state.platform === 'qq' ? 'https://y.qq.com/n/ryqq/playlist/' + id : state.platform === 'spotify' ? 'https://open.spotify.com/playlist/'+id : state.platform === 'apple' ? 'https://music.apple.com/library/playlists' : 'https://music.163.com/playlist?id=' + id;
-const isCover = value => { try { const u=new URL(value); return u.protocol==='https:'&&!u.port&&!u.username&&!u.password&&(/^p[1-9]\.music\.126\.net$/.test(u.hostname)||u.hostname==='y.gtimg.cn'&&u.pathname.startsWith('/music/photo_new/')||u.hostname==='i.scdn.co'&&u.pathname.startsWith('/image/')||/^is[1-9]-ssl\.mzstatic\.com$/.test(u.hostname)); } catch{return false;} };
+const platformName = () => state.platform === 'qq' ? 'QQ 音乐' : '网易云';
+const playlistLink = id => state.platform === 'qq' ? 'https://y.qq.com/n/ryqq/playlist/' + id : 'https://music.163.com/playlist?id=' + id;
+const isCover = value => /^https:\/\/(?:p[1-9]\.music\.126\.net\/|y\.gtimg\.cn\/music\/photo_new\/)/.test(value || '');
 const activeJob = () => ['matching', 'importing'].includes(state.phase);
 const locked = () => state.pending || activeJob();
 const selectedCount = () => state.choices.filter(Boolean).length;
@@ -25,12 +25,6 @@ function element(tag, className = '', content = '') {
   if (className) node.className = className;
   if (content !== '') node.textContent = String(content);
   return node;
-}
-function sourceLink(url,label='查看曲目 ↗') {
-  const link=element('a','music-source-link',state.platform==='spotify'?'':platformName()+' · '+label);
-  link.href=url;link.target='_blank';link.rel='noopener noreferrer';
-  if(state.platform==='spotify'){const logo=element('img','spotify-logo');logo.src='/spotify-logo.svg';logo.alt='Spotify';link.append(logo,element('span','',label));}
-  return link;
 }
 function toggle(id, visible) { $(id).classList.toggle('hidden', !visible); }
 function toast(message) {
@@ -66,12 +60,6 @@ async function run(action, errorId = '') {
 }
 function targetId(value) {
   const text = String(value).trim();
-  if(state.platform==='spotify'){
-    if(/^[A-Za-z0-9]{22}$/.test(text))return text;
-    const uri=/^spotify:playlist:([A-Za-z0-9]{22})$/.exec(text);if(uri)return uri[1];
-    try{const u=new URL(text),id=/^\/playlist\/([A-Za-z0-9]{22})\/?$/.exec(u.pathname)?.[1];if(u.protocol==='https:'&&u.hostname==='open.spotify.com'&&!u.port&&!u.username&&!u.password&&id)return id;}catch{}return '';
-  }
-  if(state.platform==='apple')return /^p\.[A-Za-z0-9.-]{2,100}$/.test(text)?text:'';
   if (/^\d+$/.test(text)) return text;
   try {
     const url = new URL(text);
@@ -96,12 +84,10 @@ function resetPlan() {
   renderRows();
 }
 function sync() {
-  document.body.dataset.platform=state.platform;
   const busy = locked();
   const canUse = state.connected && !busy;
   const hasUser = !!state.user;
   $('music-platform').value = state.platform; $('music-platform').disabled = busy || !state.connected || state.platforms.length < 2;
-  document.querySelectorAll('#music-platform option').forEach(option=>option.disabled=!state.platforms.includes(option.value));
   $('login-title').textContent = '登录' + platformName(); $('cookie-label').textContent = '仅粘贴你在' + platformName() + '官方网页的 Cookie';
   $('input-cookie').placeholder = state.platform === 'qq' ? 'uin=...; qqmusic_key=... 或 qm_keyst=...' : 'MUSIC_U=...; __csrf=...';
   $('login-help').textContent = state.platform === 'qq' ? state.capabilities.qr === false ? '当前服务仍是旧版，请重启 start.cmd 启用扫码；Cookie 可临时备用。' : '使用手机 QQ 或微信扫码，确认后自动连接。无需查找 Cookie 或填写密码。' : '扫码或使用官方网页的已有 Cookie，无需提供账号密码。';
@@ -112,30 +98,6 @@ function sync() {
   toggle('platform-note', state.platform === 'qq');
   document.querySelectorAll('.tab-btn').forEach(button => { if (button.dataset.tab === 'qr') button.disabled = state.capabilities.qr === false; });
   if (state.capabilities.qr === false) { toggle('login-tab-qr', false); toggle('login-tab-cookie', true); document.querySelectorAll('.tab-btn').forEach(button => button.classList.toggle('active', button.dataset.tab === 'cookie')); }
-  const oauth=state.capabilities.oauth===true;
-  toggle('login-native-tabs',!oauth);toggle('login-tab-oauth',oauth);toggle('official-login-link',!oauth);
-  if(oauth){
-    toggle('login-tab-qr',false);toggle('login-tab-cookie',false);
-    $('login-help').textContent='通过官方网页授权连接，凭证保存在本次本地服务会话。';
-    $('oauth-config-help').textContent=state.platform==='spotify'?'需要自己的 Spotify 开发应用和 Premium。测试用户须加入应用名单；这里仅填写 Client ID，不需要 Client Secret。':'需要 Apple Developer Program 的 MusicKit 已签名 Developer Token。账号通过 Apple 官方组件授权；无需填写密码或私钥。';
-    $('oauth-credential-label').textContent=state.platform==='spotify'?'Spotify Client ID':'MusicKit Developer Token（JWT）';
-    $('input-oauth-credential').type=state.platform==='spotify'?'text':'password';
-    $('input-oauth-credential').placeholder=state.platform==='spotify'?'32 位 Client ID':'已签名 JWT；不是 .p8 私钥';
-    $('oauth-doc-link').href=state.platform==='spotify'?'https://developer.spotify.com/dashboard':'https://developer.apple.com/musickit/';
-    toggle('oauth-storefront-group',state.platform==='apple');
-    $('oauth-redirect').textContent=state.platform==='spotify'?'在 Spotify 应用里登记此回调地址：'+location.origin+'/oauth/spotify/callback':'搜索地区会在授权后自动采用当前 Apple Music 账号的地区。';
-    $('oauth-config-status').textContent=state.session.configurationError?'启动配置未生效：'+state.session.configurationError:state.user?'已连接，可选择歌单。':state.session.configured?'本次配置已保存，下一步打开官方授权页面。':'尚未配置。保存后才能生成授权入口。';
-    $('btn-oauth-save').disabled=!canUse||state.demo;
-    $('btn-oauth-open').disabled=!canUse||state.demo||!state.session.configured;
-    $('btn-oauth-check').disabled=!canUse||state.demo;
-    $('input-oauth-credential').disabled=!canUse||state.demo;
-    $('input-oauth-storefront').disabled=!canUse||state.demo;
-  }
-  toggle('platform-note',state.platform!=='netease');
-  if(state.platform==='qq')$('platform-note').textContent='QQ 音乐：已获用户实测可用反馈，使用非官方接口；平台拒绝时停止。';
-  if(state.platform==='spotify')$('platform-note').textContent='Spotify · 测试版 Beta：官方授权接入；真实账号尚待验证。此平台用于歌单导入，AI 画像与点评不可用。';
-  if(state.platform==='apple')$('platform-note').textContent='Apple Music · 测试版 Beta：通过 MusicKit 授权，追加到资料库中可编辑的已有歌单。真实授权和写入尚待验证。';
-  $('input-target').placeholder=state.platform==='spotify'?'Spotify 完整链接或歌单 ID':state.platform==='apple'?'从“选择歌单”获取资料库 ID':platformName()+'完整链接或数字 ID';
   ['input-tracks', 'input-order', 'btn-sample', 'btn-empty-sample'].forEach(id => $(id).disabled = !canUse);
   $('btn-match').disabled = !canUse || !$('input-tracks').value.trim();
   $('btn-match').textContent = state.phase === 'matching' ? '正在搜索…' : '搜索并匹配 →';
@@ -150,9 +112,6 @@ function sync() {
   ['btn-generate-qr', 'btn-submit-cookie', 'input-cookie'].forEach(id => $(id).disabled = !canUse || state.demo);
   $('btn-generate-qr').disabled ||= state.capabilities.qr === false;
   $('btn-create-playlist').disabled ||= state.capabilities.privateCreate === false && $('input-privacy').value !== '0';
-  $('btn-create-playlist').disabled ||= state.capabilities.create === false;
-  toggle('create-playlist-zone',state.capabilities.create!==false);toggle('playlist-create-note',state.capabilities.create===false);
-  $('playlist-create-note').textContent=state.capabilities.createReason||'';
   $('create-privacy-note').textContent = state.capabilities.privateCreate === false ? 'QQ 接口未确认支持私密。私密歌单请在官方客户端新建；此处必须选择公开才能创建。' : '新歌单默认私密。';
   $('btn-check-qr').disabled = !canUse || !state.qrReady || Date.now() < state.nextQrCheck;
   $('btn-clear-login').disabled = !canUse;
@@ -205,7 +164,6 @@ function renderRows() {
     const meta = element('div', 'track-meta');
     meta.append(element('span', '', chosen ? chosen.album || '专辑未提供' : isSkipped ? '本次跳过' : row.candidates.length ? `找到 ${row.candidates.length} 个候选，请选择录音版本` : '曲库未找到，请检查歌名与歌手'));
     if (chosen) meta.append(element('span', '', formatDuration(chosen.duration)));
-    if(chosen?.externalUrl)meta.append(sourceLink(chosen.externalUrl));
     content.append(meta); item.append(content);
     item.append(element('span', 'track-score-badge' + (chosen ? ' high' : !row.candidates.length ? ' error' : ''), chosen ? '已选' : isSkipped ? '已跳过' : row.candidates.length ? '待选版本' : '未找到'));
     const actions = element('div', 'track-actions');
@@ -247,7 +205,6 @@ function openCandidates(index) {
     meta.append(element('div', 'candidate-desc', `${formatDuration(candidate.duration)} · 排序分 ${candidate.score} · ID ${candidate.id}`));
     if (candidate.variantMismatch) meta.append(element('div', 'candidate-warning', '版本标记不同：请留意现场、混音、翻唱等差异'));
     if (candidate.writeBlocked) meta.append(element('div', 'candidate-warning', '类型信息不一致，暂不能导入；可跳过或重新匹配。'));
-    if(candidate.externalUrl)meta.append(sourceLink(candidate.externalUrl));
     label.append(radio, meta); fragment.append(label);
   });
   $('candidate-list').replaceChildren(fragment); sync(); $('modal-candidates').showModal();
@@ -299,7 +256,7 @@ function renderReport() {
   $('result-added').textContent = report.verified.length; $('result-skipped').textContent = report.skipped.length; $('result-unverified').textContent = report.unverified.length;
   $('result-stopped').textContent = report.stopped ? report.stopped + ' 未确认的歌曲可能已经加入，也可能尚未尝试；请到官方客户端核对。' : '';
   toggle('result-stopped', !!report.stopped);
-  const validLink = !state.demo && !!targetId(report.playlistId);
+  const validLink = !state.demo && /^\d+$/.test(String(report.playlistId));
   if (validLink) $('result-link').href = playlistLink(report.playlistId);
   toggle('result-link', validLink); toggle('btn-copy-link', validLink); toggle('result-zone', true); sync();
   $('result-zone').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
@@ -313,11 +270,11 @@ async function loadPlaylists() {
   const fragment = document.createDocumentFragment();
   for (const playlist of result.playlists) {
     const item = element('li'); const button = element('button', 'playlist-item');
-    button.append(element('strong', '', playlist.name), element('span', '', `${playlist.count===null?'数量待读取':playlist.count+' 首'} · ${playlist.id}`));
+    button.append(element('strong', '', playlist.name), element('span', '', `${playlist.count} 首 · ${playlist.id}`));
     button.addEventListener('click', () => { if (locked()) return; setTarget(playlist.id, playlist.name); $('modal-playlists').close(); toast('目标歌单已选择。'); });
-    item.append(button);if(state.platform==='spotify')item.append(sourceLink(playlistLink(playlist.id),'打开歌单 ↗'));fragment.append(item);
+    item.append(button); fragment.append(item);
   }
-  if (!result.playlists.length) fragment.append(element('li', 'text-hint', state.capabilities.create===false?'暂未找到可编辑歌单，请在官方客户端创建后刷新。':'暂未找到自己创建的歌单，可以在下方新建。'));
+  if (!result.playlists.length) fragment.append(element('li', 'text-hint', '暂未找到自己创建的歌单，可以在下方新建。'));
   $('user-playlists').replaceChildren(fragment);
 }
 function download(name, content, type) {
@@ -348,29 +305,15 @@ $('btn-confirm-candidate').addEventListener('click', () => {
   $('modal-candidates').close(); renderRows(); toast('已更新录音版本。');
 });
 $('btn-login-modal').addEventListener('click', () => { toggle('login-error', false); if (state.capabilities.qr !== false) selectLoginTab('qr'); $('modal-login').showModal(); if (state.capabilities.qr !== false && !state.qrReady && !state.session.hasSession) $('btn-generate-qr').click(); });
-$('btn-oauth-save').addEventListener('click',()=>run(async()=>{
-  const credential=$('input-oauth-credential').value.trim();$('input-oauth-credential').value='';
-  const data=state.platform==='spotify'?{clientId:credential}:{developerToken:credential,storefront:$('input-oauth-storefront').value.trim()};
-  const result=await api('oauth/config',data);state.session=result.session;state.user=null;resetPlan();toggle('oauth-authorize-link',false);if(typeof clearAnalysisSource==='function')clearAnalysisSource();toast('本次配置已保存。');
-},'login-error'));
-$('btn-oauth-open').addEventListener('click',()=>run(async()=>{
-  const result=await api('oauth/start'),u=new URL(result.authorizeUrl);
-  if(state.platform==='spotify'?u.origin!=='https://accounts.spotify.com'||u.pathname!=='/authorize':u.origin!==location.origin||u.pathname!=='/apple-auth.html')throw new Error('授权入口地址不正确，已停止。');
-  $('oauth-authorize-link').href=u.href;toggle('oauth-authorize-link',true);resetPlan();
-},'login-error'));
-$('btn-oauth-check').addEventListener('click',()=>run(async()=>{
-  const result=await api('session/verify');state.user=result.user;state.session=result.session;resetPlan();$('modal-login').close();if(typeof clearAnalysisSource==='function')clearAnalysisSource();toast(platformName()+'已连接。');
-},'login-error'));
 $('input-privacy').addEventListener('change', sync);
 $('music-platform').addEventListener('change', () => {
   const next = $('music-platform').value;
   if (locked()) { sync(); return; }
   void run(async () => {
-    stopQrPolling(); state.qrReady = false; state.qqQrType = 'qq'; state.loginIntent = ''; const previousPlatform=state.platform;
+    stopQrPolling(); state.qrReady = false; state.qqQrType = 'qq'; state.loginIntent = '';
     const result = await api('platform', { platform: next });
     state.platform = result.platform; state.platforms = result.platforms; state.capabilities = result.capabilities; state.user = result.user; state.session = result.session; state.qrReady = false; state.phase = 'idle';
     $('input-cookie').value = ''; $('input-target').value = ''; $('qr-container').textContent = '点击下方生成二维码'; resetPlan();
-    $('input-oauth-credential').value='';$('oauth-authorize-link').removeAttribute?.('href');toggle('oauth-authorize-link',false);if(previousPlatform==='spotify')$('input-tracks').value='';
     if (state.demo) setTarget('90001', platformName() + '演示歌单');
     if (typeof resetStudioPlatform === 'function') await resetStudioPlatform();
     toast('已切换至' + platformName() + '，请重新选择目标和匹配歌曲。');
