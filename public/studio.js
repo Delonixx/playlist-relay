@@ -57,12 +57,12 @@ studio.recFailure = '';
 const directionLabels = { familiar: '贴近口味', expand: '向外延伸', adventurous: '尝试跨界' };
 
 function studioPage(name) {
-  if (!['playlist', 'analysis', 'discover'].includes(name)) return;
+  if (!['playlist', 'analysis', 'discover', 'prune'].includes(name)) return;
   const changed = studio.page !== name;
   studio.page = name;
-  for (const page of ['playlist', 'analysis', 'discover']) toggle('page-' + page, page === name);
+  for (const page of ['playlist', 'analysis', 'discover', 'prune']) toggle('page-' + page, page === name);
   document.querySelectorAll('.nav-item').forEach(button => { button.classList.toggle('active', button.dataset.page === name); button.setAttribute('aria-current', button.dataset.page === name ? 'page' : 'false'); });
-  document.title = '歌单接力 · ' + ({ playlist: '歌单', analysis: '分析', discover: '发现' })[name];
+  document.title = '歌单接力 · ' + ({ playlist: '歌单', analysis: '分析', discover: '发现', prune:'整理' })[name];
   updateStudio();
   if (changed) document.scrollingElement?.scrollTo({ top: 0, behavior: 'auto' });
 }

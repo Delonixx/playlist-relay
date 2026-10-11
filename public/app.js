@@ -13,7 +13,7 @@ state.qrWorking = false;
 const platformName = () => state.platform === 'qq' ? 'QQ 音乐' : '网易云';
 const playlistLink = id => state.platform === 'qq' ? 'https://y.qq.com/n/ryqq/playlist/' + id : 'https://music.163.com/playlist?id=' + id;
 const isCover = value => /^https:\/\/(?:p[1-9]\.music\.126\.net\/|y\.gtimg\.cn\/music\/photo_new\/)/.test(value || '');
-const activeJob = () => ['matching', 'importing'].includes(state.phase);
+const activeJob = () => ['matching', 'importing'].includes(state.phase) || typeof prune !== 'undefined' && prune.busy;
 const locked = () => state.pending || activeJob();
 const selectedCount = () => state.choices.filter(Boolean).length;
 const uniqueCount = () => new Set(state.choices.filter(Boolean)).size;
@@ -132,6 +132,7 @@ function sync() {
   $('match-summary').textContent = activeJob() ? (state.phase === 'matching' ? '正在逐首搜索，请稍候。' : '正在追加与读回，请等待核验结果。') : state.report ? '本次操作已结束。再次导入请重新匹配。' : state.rows.length ? `已选 ${count} / ${state.rows.length} 首${review ? `，${review} 首待核对` : ''}${count !== uniqueCount() ? `（${uniqueCount()} 个独立歌曲 ID）` : ''}。` : '先匹配，再确认喜欢的版本。';
   document.querySelectorAll('.track-list button,.track-checkbox').forEach(node => node.disabled = busy || !state.revision);
   if (typeof updateStudio === 'function') updateStudio();
+  if (typeof updatePrune === 'function') updatePrune();
   if (canUse && hasUser && state.loginIntent === 'playlists' && !$('modal-login').open) {
     state.loginIntent = ''; queueMicrotask(openPlaylistPicker);
   }
