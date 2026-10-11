@@ -57,12 +57,12 @@ studio.recFailure = '';
 const directionLabels = { familiar: '贴近口味', expand: '向外延伸', adventurous: '尝试跨界' };
 
 function studioPage(name) {
-  if (!['playlist', 'analysis', 'discover'].includes(name)) return;
+  if (!['playlist', 'analysis', 'discover', 'prune'].includes(name)) return;
   const changed = studio.page !== name;
   studio.page = name;
-  for (const page of ['playlist', 'analysis', 'discover']) toggle('page-' + page, page === name);
+  for (const page of ['playlist', 'analysis', 'discover', 'prune']) toggle('page-' + page, page === name);
   document.querySelectorAll('.nav-item').forEach(button => { button.classList.toggle('active', button.dataset.page === name); button.setAttribute('aria-current', button.dataset.page === name ? 'page' : 'false'); });
-  document.title = '歌单接力 · ' + ({ playlist: '歌单', analysis: '分析', discover: '发现' })[name];
+  document.title = '歌单接力 · ' + ({ playlist: '歌单', analysis: '分析', discover: '发现', prune:'整理' })[name];
   updateStudio();
   if (changed) document.scrollingElement?.scrollTo({ top: 0, behavior: 'auto' });
 }
@@ -107,9 +107,6 @@ function updateStudio() {
   $('btn-read-from-playlist').textContent = targetId($('input-target').value) ? '读取歌单用于分析' : '选择歌单用于分析';
   ['btn-analyze', 'btn-analyze-empty'].forEach(id => $(id).disabled = !state.connected || busy || studio.aiBusy);
   $('btn-new-recommendations').disabled = !state.connected || busy || studio.aiBusy || !studio.result;
-  const aiBlocked=state.capabilities.aiAnalysis===false;
-  ['btn-analyze','btn-analyze-empty','btn-new-recommendations','btn-read-playlist','btn-read-from-playlist'].forEach(id=>$(id).disabled ||= aiBlocked);
-  toggle('global-ai-note',aiBlocked);$('global-ai-note').textContent=state.capabilities.aiReason||'';
   $('btn-ai-resume').disabled = studio.polling;
   $('btn-match-recommendations').disabled = busy || studio.aiBusy || !studio.queue.size;
   $('btn-match-recommendations').textContent = studio.queue.size ? `核对待选 · ${studio.queue.size}` : '匹配所选歌曲';
@@ -152,7 +149,7 @@ function updateStudio() {
   $('btn-source-picker').disabled = !state.connected || busy || studio.aiBusy;
   $('btn-source-picker').textContent = state.user ? '选择 / 更换歌单' : '登录并选择歌单';
   const nextAnalysisAction = !count ? '添加歌曲列表' : !studio.configured ? '配置 AI' : studio.aiBusy && studio.jobKind === 'analysis' ? '分析中…' : studio.result ? '重新分析' : '开始分析';
-  ['btn-analyze', 'btn-analyze-empty'].forEach(id => { $(id).disabled = !state.connected || busy || studio.aiBusy || aiBlocked; $(id).textContent = aiBlocked ? '当前平台不支持分析' : nextAnalysisAction; });
+  ['btn-analyze', 'btn-analyze-empty'].forEach(id => { $(id).disabled = !state.connected || busy || studio.aiBusy; $(id).textContent = nextAnalysisAction; });
   $('analysis-empty-description').textContent = !count ? '添加一份歌曲列表，或选择并读取已有歌单。' : !studio.configured ? `${count} ${raw ? '行' : '首歌曲'}已准备，配置 AI 后即可分析。` : `${count} ${raw ? '行' : '首歌曲'}已准备，可以开始分析。`;
   const recChanged = !!studio.result && (recommendationDirection() !== studio.result.direction || recommendationPreferences() !== studio.result.recommendationPreferences || studio.feedbackSupported && JSON.stringify(studio.feedback) !== JSON.stringify(studio.result.feedback || []));
   const recFailed = studio.recFailure === recommendationSignature();
@@ -176,8 +173,8 @@ function updateStudio() {
   document.querySelectorAll('.queue-remove').forEach(button => button.disabled = studio.aiBusy || busy);
   document.querySelectorAll('.taste-button').forEach(button => { button.disabled = studio.aiBusy || busy || !studio.feedbackSupported; button.title = studio.feedbackSupported ? '下次生成推荐时使用，再点可撤销' : '当前服务版本较旧，请在口味记录中查看说明'; });
   $('btn-discover-analyze').textContent = studio.result ? '根据画像生成推荐' : '去分析';
-  $('btn-discover-analyze').disabled = studio.aiBusy || busy || aiBlocked;
-  $('discover-empty-description').textContent = aiBlocked ? state.capabilities.aiReason : studio.result ? '画像已保留，可以直接生成新推荐。' : '先分析一份歌单，再寻找新的作品。';
+  $('btn-discover-analyze').disabled = studio.aiBusy || busy;
+  $('discover-empty-description').textContent = studio.result ? '画像已保留，可以直接生成新推荐。' : '先分析一份歌单，再寻找新的作品。';
   toggle('btn-analysis-add-songs', !!count && !studio.configured);
 }
 function aiError(message = '') { const id = studio.jobKind === 'recommendations' ? 'discover-error' : 'ai-error'; $(id).textContent = message; toggle(id, !!message); }

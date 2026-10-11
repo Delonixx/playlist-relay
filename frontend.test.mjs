@@ -58,6 +58,7 @@ function dom(html) {
   }
   const byId = new Map(walk(root).filter(node => node.id).map(node => [node.id, node]));
   byId.get('input-order').value = 'title-first'; byId.get('input-privacy').value = '10';
+  byId.get('prune-mode').value='rules';byId.get('prune-rule').value='live';
   return {
     body: walk(root).find(node => node.tagName === 'BODY'),
     getElementById: id => { assert.ok(byId.has(id), 'missing HTML control: ' + id); return byId.get(id); },
@@ -69,16 +70,17 @@ function dom(html) {
 const html = await readFile(new URL('./public/index.html', import.meta.url), 'utf8');
 const source = await readFile(new URL('./public/app.js', import.meta.url), 'utf8');
 const studioSource = await readFile(new URL('./public/studio.js', import.meta.url), 'utf8');
+const pruneSource = await readFile(new URL('./public/prune.js', import.meta.url), 'utf8');
 async function until(check) {
   for (let attempt = 0; attempt < 200; attempt++) { if (check()) return; await new Promise(resolve => setTimeout(resolve, 10)); }
   assert.fail('frontend did not reach expected state');
 }
-async function fixture(t, { badToken = false, adapter = new Demo(), withStudio = false, demo = true, ai, adapters, qrPollDelay, storage = new Map(), storageBlocked = false } = {}) {
+async function fixture(t, { badToken = false, adapter = new Demo(), withStudio = false, withPrune = false, demo = true, ai, adapters, qrPollDelay, storage = new Map(), storageBlocked = false } = {}) {
   const app = createApp(adapter, { demo, ai, adapters });
   await new Promise(resolve => app.server.listen(0, '127.0.0.1', resolve));
   const base = 'http://127.0.0.1:' + app.server.address().port;
   const document = dom(html), calls = [], timers = [];
-  const context = vm.createContext({ document, location: { origin:base, hash: '#' + (badToken ? 'invalid' : app.token) }, history: { replaceState() {} },
+  const context = vm.createContext({ document, location: { hash: '#' + (badToken ? 'invalid' : app.token) }, history: { replaceState() {} },
     fetch: (url, options) => { calls.push({ url, body: JSON.parse(options.body) }); return fetch(base + url, options); },
     setTimeout: (fn, delay) => { const timer = setTimeout(fn, delay === 3500 && qrPollDelay ? qrPollDelay : delay); timers.push(timer); return timer; },
     clearTimeout, queueMicrotask, Blob, localStorage: {
@@ -88,57 +90,65 @@ async function fixture(t, { badToken = false, adapter = new Demo(), withStudio =
     }, URL: class extends URL { static createObjectURL() { return 'blob:test'; } static revokeObjectURL() {} },
     matchMedia: () => ({ matches: true }), navigator: { clipboard: { writeText: async () => {} } } });
   vm.runInContext(source, context);
-  if (withStudio) vm.runInContext(studioSource, context);
+  if (withStudio || withPrune) vm.runInContext(studioSource, context);
+  if (withPrune) vm.runInContext(pruneSource, context);
   const state = () => vm.runInContext('state', context), get = document.getElementById;
-  const studio = () => withStudio ? vm.runInContext('studio', context) : null;
+  const studio = () => withStudio || withPrune ? vm.runInContext('studio', context) : null;
   t.after(async () => { timers.forEach(clearTimeout); app.server.closeAllConnections(); await new Promise(resolve => app.server.close(resolve)); });
-  await until(() => !state().pending && (!withStudio || studio().ready));
+  await until(() => !state().pending && (!(withStudio || withPrune) || studio().ready));
   return { document, get, state, studio, calls, app, base, storage, context };
 }
 
-class OAuthUIFixture extends Demo {
-  constructor(platform) {super();this.platform=platform;this.configured=false;this.authorized=false;this.pending=false;}
-  capabilities() {return {oauth:true,qr:false,cookie:false,create:this.platform==='spotify',privateCreate:this.platform==='spotify',aiAnalysis:this.platform!=='spotify',aiReason:'Spotify 平台内容不能用于 AI 分析。',createReason:'请先在官方客户端创建 Apple Music 歌单。'};}
-  sessionInfo() {return {configured:this.configured,hasSession:this.authorized,verified:this.authorized,authPending:this.pending};}
-  async user() {if(!this.authorized)throw new Error('尚未授权');return {id:'fixture-user',name:'Fixture User'};}
-  async verifySession() {return this.user();}
-  configure(data) {this.configured=!!(data.clientId||data.developerToken);this.authorized=false;return this.sessionInfo();}
-  beginAuth(redirectUri) {this.pending=true;return {authorizeUrl:'https://accounts.spotify.com/authorize?'+new URLSearchParams({redirect_uri:redirectUri,state:'fixture'})};}
-  cancelAuth() {this.pending=false;}
-  async playlists() {return [{id:this.platform==='apple'?'p.fixture':'A'.repeat(22),name:'My Playlist',count:null}];}
-}
-test('Spotify configuration, official link and post-authorization check guide the user without writes or cookie controls',async t=>{
-  const spotify=new OAuthUIFixture('spotify'),netease=new Demo();
-  const {get,state,calls,base,document}=await fixture(t,{adapter:spotify,adapters:{spotify,netease},withStudio:true,demo:false});
-  await get('btn-login-modal').click();
-  assert.equal(get('login-tab-oauth').classList.contains('hidden'),false);
-  assert.equal(get('login-tab-cookie').classList.contains('hidden'),true);assert.equal(get('login-tab-qr').classList.contains('hidden'),true);
-  assert.equal(get('btn-oauth-open').disabled,true);assert.ok(get('oauth-redirect').textContent.includes(base+'/oauth/spotify/callback'));
-  assert.equal(get('btn-analyze').disabled,true);assert.match(get('global-ai-note').textContent,/Spotify/);
-  get('input-oauth-credential').value='a'.repeat(32);await get('btn-oauth-save').click();await until(()=>!state().pending);
-  assert.equal(get('input-oauth-credential').value,'');assert.equal(get('btn-oauth-open').disabled,false);
-  await get('btn-oauth-open').click();await until(()=>!state().pending);
-  assert.equal(new URL(get('oauth-authorize-link').href).hostname,'accounts.spotify.com');
-  await get('btn-oauth-check').click();await until(()=>!state().pending);assert.match(get('login-error').textContent,/尚未完成/);
-  spotify.pending=false;spotify.authorized=true;await get('btn-oauth-check').click();await until(()=>!state().pending);
-  assert.equal(state().user.name,'Fixture User');assert.equal(get('modal-login').open,false);
-  await get('btn-select-playlist').click();await until(()=>!state().pending);assert.match(get('user-playlists').textContent,/数量待读取/);
-  assert.equal(calls.some(c=>['/api/import','/api/create','/api/ai/analyze'].includes(c.url)),false);
-  get('input-tracks').value='Spotify source';get('music-platform').value='netease';await get('music-platform').fire('change');await until(()=>!state().pending&&state().platform==='netease');
-  assert.equal(get('input-tracks').value,'');assert.equal(get('btn-analyze').disabled,false);
-  assert.equal(document.querySelectorAll('#music-platform option').find(x=>x.value==='apple').disabled,true);
+test('pruning UI previews complete playlist, honors deselection, and writes only after separate confirmation',async t=>{
+  const adapter=new Demo(),{get,calls,context,document}=await fixture(t,{adapter,withPrune:true});
+  const current=()=>vm.runInContext('prune',context);
+  get('input-target').value='90001';await get('input-target').fire('input');
+  await document.querySelectorAll('.nav-item').find(value=>value.dataset.page==='prune').click();
+  assert.equal(get('page-prune').classList.contains('hidden'),false);assert.equal(get('page-analysis').classList.contains('hidden'),true);
+  await get('btn-prune-prepare').click();await until(()=>current().preview&&!current().busy);
+  assert.equal(calls.some(value=>value.url==='/api/prune/execute'),false);assert.equal(adapter.ids.length,1);assert.match(get('prune-count').textContent,/1 首建议 \/ 1 首已检查/);
+  await get('btn-prune-select-none').click();assert.equal(get('btn-prune-review').disabled,true);
+  await get('btn-prune-select-all').click();await get('btn-prune-review').click();assert.equal(get('modal-prune-confirm').open,true);assert.match(get('prune-confirm-description').textContent,/移出 1 首/);
+  assert.equal(calls.some(value=>value.url==='/api/prune/execute'),false);
+  await get('btn-prune-execute').click();await until(()=>current().report&&!current().busy);
+  assert.equal(adapter.ids.length,0);assert.deepEqual(calls.find(value=>value.url==='/api/prune/execute').body.selections,['101']);assert.match(get('prune-result-description').textContent,/1 首已读回确认移出/);
 });
-test('Apple UI masks token, shows editable-library selection and blocks creation and public share ID imports',async t=>{
-  const apple=new OAuthUIFixture('apple');const {get,state,calls}=await fixture(t,{adapter:apple,withStudio:true,demo:false});
-  assert.equal(get('input-oauth-credential').type,'password');assert.equal(get('create-playlist-zone').classList.contains('hidden'),true);
-  assert.match(get('playlist-create-note').textContent,/官方客户端/);
-  get('input-oauth-credential').value='fixture-developer-token';get('input-oauth-storefront').value='us';await get('btn-oauth-save').click();await until(()=>!state().pending);
-  assert.equal(get('input-oauth-credential').value,'');assert.equal(get('oauth-storefront-group').classList.contains('hidden'),false);
-  apple.authorized=true;await get('btn-oauth-check').click();await until(()=>!state().pending);
-  get('input-target').value='https://music.apple.com/us/playlist/x/pl.fixture';await get('input-target').fire('input');
-  state().revision='fixture';state().choices=['100'];await get('input-target').fire('input');assert.equal(get('btn-execute-import').disabled,true);
-  get('input-target').value='p.fixture';await get('input-target').fire('input');assert.equal(get('btn-execute-import').disabled,false);
-  assert.equal(calls.some(c=>c.url==='/api/create'||c.url==='/api/import'),false);
+test('editing a prune condition or changing the destination discards both preview and confirmation',async t=>{
+  const {get,context,calls}=await fixture(t,{withPrune:true}),current=()=>vm.runInContext('prune',context);
+  get('input-target').value='90001';await get('input-target').fire('input');await get('btn-prune-prepare').click();await until(()=>current().preview&&!current().busy);await get('btn-prune-review').click();
+  get('prune-rule').value='artist';await get('prune-rule').fire('change');assert.equal(current().preview,null);assert.equal(current().confirm,null);assert.equal(get('modal-prune-confirm').open,false);
+  get('prune-rule').value='live';await get('prune-rule').fire('change');await get('btn-prune-prepare').click();await until(()=>current().preview&&!current().busy);await get('btn-prune-review').click();
+  get('input-target').value='90002';await get('input-target').fire('input');assert.equal(current().preview,null);assert.equal(get('modal-prune-confirm').open,false);assert.match(get('prune-error').textContent,/目标歌单已变化/);
+  assert.equal(calls.some(value=>value.url==='/api/prune/execute'),false);
+});
+test('AI pruning shows reasons and uncertainty, never enables unknown suggestions, and leaves original analysis intact',async t=>{
+  const adapter=new Demo();adapter.ids=['101','102'];adapter.catalog.set('102',{id:'102',name:'Unknown track',ar:[{name:'Unknown'}],al:{name:'Unknown'}});
+  const ai=new MusicAI();ai.configure({key:'fixture-key'});const previous={summary:'Keep original analysis'};ai.lastResult=previous;
+  ai.requestJSON=async(_,input)=>({tracks:input.tracks.map((value,i)=>({ref:value.ref,known:i===0,remove:true,confidence:'high',reason:i?'未可靠识别':'这首作品的薄编排符合移除要求'}))});
+  const {get,context,document}=await fixture(t,{adapter,ai,demo:false,withPrune:true}),current=()=>vm.runInContext('prune',context);
+  get('input-target').value='90001';await get('input-target').fire('input');get('prune-mode').value='ai';await get('prune-mode').fire('change');get('prune-request').value='移除薄编排的歌';await get('prune-request').fire('input');
+  await get('btn-prune-prepare').click();await until(()=>current().preview&&!current().busy);
+  assert.match(get('prune-candidates').textContent,/薄编排/);assert.match(get('prune-candidates').textContent,/不能删除/);assert.equal(document.querySelectorAll('.prune-check').find(value=>value.dataset.eligible==='false').disabled,true);
+  await get('btn-prune-select-all').click();assert.equal(current().selection.size,1);assert.equal(ai.lastResult,previous);assert.equal(ai.job.state,'idle');
+});
+
+test('domestic release keeps two platform choices, QR login and pruning while retired authorization routes reject requests', async t => {
+  const netease = new Demo(), qq = new Demo({platform:'qq'});
+  const {document,get,state,base,app,calls} = await fixture(t,{adapter:netease,adapters:{netease,qq},withPrune:true});
+  assert.deepEqual(document.querySelectorAll('#music-platform option').map(value=>value.value),['netease','qq']);
+  assert.equal(state().capabilities.prune,true);
+  const post = async (route,body={}) => {
+    const response = await fetch(base+route,{method:'POST',headers:{'Content-Type':'application/json','X-Local-Token':app.token},body:JSON.stringify(body)});
+    return {status:response.status,body:await response.json()};
+  };
+  const status = await post('/api/status');assert.deepEqual(status.body.platforms,['netease','qq']);assert.equal(status.body.version,'0.8.2-beta.1');
+  for(const platform of ['spotify','apple'])assert.equal((await post('/api/platform',{platform})).status,400);
+  for(const route of ['/api/oauth/config','/api/oauth/start','/api/oauth/status','/api/apple/auth-config','/api/apple/user-token'])assert.equal((await post(route)).status,400);
+  for(const route of ['/apple-auth.html','/apple-auth.js','/spotify-logo.svg','/oauth/spotify/callback'])assert.equal((await fetch(base+route)).status,403);
+  assert.equal((await post('/api/status')).body.platform,'netease');
+  get('music-platform').value='qq';await get('music-platform').fire('change');await until(()=>!state().pending&&state().platform==='qq');
+  await get('btn-login-modal').click();assert.equal(get('login-tab-qr').classList.contains('hidden'),false);assert.match(get('login-title').textContent,/QQ/);
+  assert.equal(calls.some(value=>['/api/import','/api/prune/execute','/api/create'].includes(value.url)),false);
 });
 
 test('selected songs and their explicit edition survive a new batch and are matched together without importing', async t => {

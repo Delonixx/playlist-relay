@@ -4,6 +4,22 @@
   --bg:#edf0e5; --accent:#d6f36b; --green:#375843; --radius:18px;
   color-scheme:light; font-family:Inter,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
 }
+.prune-layout{display:grid;grid-template-columns:minmax(270px,340px) minmax(0,1fr);gap:24px;align-items:start}
+.prune-settings{display:grid;gap:12px;padding:24px;position:sticky;top:24px}
+.prune-settings .field-label{display:block;margin:12px 0 6px}.prune-settings textarea{font-size:16px;line-height:1.8}
+.prune-preview{padding:28px;min-width:0}.prune-preview .empty-state{min-height:300px}
+.prune-tools{display:flex;gap:16px;flex-wrap:wrap;padding:18px 0;border-bottom:1px solid var(--line)}
+.prune-candidate{display:grid;grid-template-columns:22px 56px minmax(0,1fr);gap:16px;padding:20px 0;border-bottom:1px solid var(--line);align-items:start;animation:pruneEnter .25s ease both}
+.prune-check{width:20px;height:20px;accent-color:var(--green);margin-top:8px}.prune-art{height:56px;border-radius:10px;background:#e2e7d6;display:grid;place-items:center;overflow:hidden;font-size:24px;color:var(--green)}
+.prune-art img{width:100%;height:100%;object-fit:contain}.prune-song strong{font-size:18px;overflow-wrap:anywhere}.prune-meta{color:var(--muted);font-size:15px}.prune-reason{margin-top:8px;font-size:16px;line-height:1.7;overflow-wrap:anywhere}.prune-basis{color:var(--muted);font-size:13px}
+.prune-actions{display:flex;gap:20px;align-items:center;justify-content:space-between;margin-top:24px}.btn-remove{background:#93452e;color:#fff}.btn-remove:hover{background:#743221}.prune-confirm-tracks{padding-left:24px;max-height:220px;overflow:auto;margin:16px 0}
+@keyframes pruneEnter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media(max-width:900px){.prune-layout{grid-template-columns:1fr}.prune-settings{position:static}.prune-preview{padding:20px}}
+@media(max-width:480px){.prune-candidate{grid-template-columns:20px 44px minmax(0,1fr);gap:10px}.prune-art{height:44px}.prune-actions{align-items:stretch;flex-direction:column}.prune-settings{padding:20px}}
+@media(prefers-reduced-motion:reduce){.prune-candidate{animation:none}}
+.prune-song,.prune-preview-description{min-width:0}.prune-settings select{font-size:16px}.prune-settings .text-hint{font-size:15px}
+.prune-status{color:var(--green);font-size:20px}.prune-song .prune-outcome{display:block;font-size:14px;color:var(--green);margin-top:8px}
+@media(max-width:360px){.nav-links{gap:14px}.nav-item{gap:6px}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--ink);font-size:16px;line-height:1.65}
 button,input,select,textarea{font:inherit;color:inherit}button{border:0;background:none;cursor:pointer}
@@ -258,7 +274,3 @@ button.text-btn{min-height:44px}.btn-icon{min-width:44px;min-height:44px}
 .qq-qr-types{display:flex;gap:4px;padding:4px;background:#e8edde;border-radius:12px;margin-bottom:20px}.qq-qr-types button{flex:1;border:0;background:transparent;color:#536548;min-height:44px;font-size:16px;border-radius:9px;cursor:pointer;transition:background .18s,color .18s}.qq-qr-types button.active{background:#233e29;color:#e5f5d2}.qq-qr-types button:disabled{cursor:default;opacity:.65}#qr-status{font-size:16px;line-height:1.6;color:#243e2b}.qr-auto-hint{font-size:14px;color:#627254;margin:7px 0 18px}
 .brand{margin-bottom:24px}.platform-field{margin:0 6px 30px;min-width:0}.platform-field label{display:block;font-size:14px;color:#b6c6a8;margin-bottom:9px}.platform-field select{font-size:15px;color:#e5eedc;background:#2b3d2c;border-color:#4a6042;max-width:100%;padding:10px 8px}.platform-field select option{background:#2b3d2c;color:#e5eedc}.official-login-link{display:inline-block;text-decoration:underline;margin-bottom:18px}.favorite-note{font-size:14px;color:#4b6539;margin:0 20px 12px;overflow-wrap:anywhere}.candidate-favorites{font-size:14px;color:#496532;margin-top:5px}
 @media(max-width:640px){.brand{margin-bottom:0}.platform-field{grid-column:1/-1;grid-row:2;margin:0;display:flex;align-items:center;gap:12px}.platform-field label{margin:0;white-space:nowrap}.platform-field select{flex:1;min-width:0;font-size:16px}.nav-links{grid-row:3}.sidebar{gap:17px}.sidebar-bottom{grid-row:1}}
-/* Official global account authorization keeps the main app's local-only CSP. */
-.oauth-config{display:grid;gap:14px;text-align:left}.oauth-config.hidden{display:none}.oauth-config label{font-size:15px;font-weight:600}.oauth-config input{width:100%}.oauth-config .btn{text-align:center}.oauth-redirect{overflow-wrap:anywhere;padding:12px;background:var(--bg-secondary,#eff1e7);border-radius:12px}.oauth-page{max-width:680px;margin:8vh auto;padding:32px;display:grid;gap:22px}.oauth-page h1{font-size:clamp(30px,5vw,48px);line-height:1.15}.oauth-page p{font-size:17px;line-height:1.7}.oauth-page .micro-hint{font-size:14px}.oauth-page .btn{justify-self:start}.oauth-page a{overflow-wrap:anywhere}@media(max-width:680px){.oauth-page{margin:3vh auto;padding:24px}.oauth-config{gap:12px}}
-.music-source-link{display:inline-flex;align-items:center;gap:14px;padding:10px 14px;margin:8px 0;background:#fff;border-radius:8px;color:#17251b;font-size:14px;line-height:1.4;min-height:44px;text-decoration:none}.music-source-link:hover{text-decoration:underline}.spotify-logo{width:88px;height:auto;max-width:none}
-body[data-platform="spotify"] .track-cover,body[data-platform="spotify"] .candidate-cover{object-fit:contain;border-radius:8px}

@@ -11,6 +11,6 @@
 
 当前测试版尚未经过独立安全审计。平台兼容性和真实写入以官方客户端及核对报告为准，首次使用建议用专门的测试歌单。
 
-## 新平台授权
+## 歌单整理
 
-Spotify 的 state / PKCE、Apple 的一次性 nonce 与 Music User Token 仅限本次会话。不要提交 Client Secret、Developer Token、用户令牌或 .p8 私钥。本地签名只读取用户明确指定的私钥文件；签出的 Developer Token 按官方协议发送给 Apple。主页面不加载外部 SDK，Apple 仅在隔离的授权页加载官方 MusicKit。Spotify 内容不得输入 AI。
+移出歌曲必须重新完整读取、核对账号和歌单快照、逐首预览并单独确认；低置信度与未知作品不自动删除。导出原清单不等于平台支持原子回滚。整理真实账号写入尚未验收。

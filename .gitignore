@@ -10,8 +10,3 @@ import-report*.json
 *.key
 *.p8
 *.pem
-
-.DS_Store
-Thumbs.db
-*.pid
-coverage/
